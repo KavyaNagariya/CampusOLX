@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.api.v1.router import api_router
-from app.db.session import engine
-from app.db.init_db import init_db
 
 settings = get_settings()
 
@@ -14,7 +12,7 @@ app = FastAPI(
 )
 
 # --------------------
-# CORS (for frontend later)
+# CORS Configuration
 # --------------------
 app.add_middleware(
     CORSMiddleware,
@@ -33,13 +31,6 @@ app.include_router(
 )
 
 # --------------------
-# Startup event
-# --------------------
-@app.on_event("startup")
-async def on_startup():
-    await init_db(engine)
-
-# --------------------
 # Health check
 # --------------------
 @app.get("/")
@@ -47,4 +38,3 @@ async def root():
     return {
         "message": "Campus Marketplace API is running 🚀"
     }
-

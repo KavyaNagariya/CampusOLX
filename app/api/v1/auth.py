@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
+from fastapi.security import OAuth2PasswordRequestForm
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.schemas.auth import LoginRequest, TokenResponse
@@ -32,13 +32,13 @@ async def signup(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    login_in: LoginRequest,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     token = await authenticate_user(
         db,
-        email=login_in.email,
-        password=login_in.password,
+        email=form_data.username,
+        password=form_data.password,
     )
 
     if not token:
@@ -47,5 +47,5 @@ async def login(
             detail="Invalid email or password",
         )
 
-    return TokenResponse(access_token=token)
+    return {"access_token": token, "token_type": "bearer"}
 

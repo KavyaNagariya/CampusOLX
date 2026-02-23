@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select 
+from sqlalchemy import select
 from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.schemas.item import ItemCreate, ItemResponse, Item
+from app.models.item import Item
+from app.schemas.item import ItemCreate, ItemResponse
 from app.utils.image_upload import upload_item_image
 from app.services.item_service import create_item, list_available_items
+from typing import Optional
+
 
 router = APIRouter(prefix="/items", tags=["Items"])
 
@@ -20,11 +23,15 @@ async def post_item(
     return await create_item(db, item_in, current_user.id)
 
 
-@router.get("/", response_model=list[ItemResponse])
+@router.get("/", response_model=list[ItemResponse], status_code=status.HTTP_200_OK)
 async def browse_items(
     db: AsyncSession = Depends(get_db),
+    q: Optional[str] = Query(None, description="Search title or description"),
+    category_id: Optional[int] = Query(None, description="Filter by category"),
+    max_price: Optional[int] = Query(None, description="Maximum price in rupees"),
+    limit: int = Query(50, ge=1, le=100)
 ):
-    return await list_available_items(db)
+    return await list_available_items(db=db, q=q, category_id=category_id, max_price=max_price, limit=limit)
 
 @router.post("/{item_id}/image", status_code=status.HTTP_200_OK)
 async def upload_image_for_item(
@@ -68,3 +75,4 @@ async def upload_image_for_item(
         )
 
     return {"message": "Image uploaded successfully", "image_url": secure_url}
+

@@ -7,6 +7,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 
 
 async def register_user(db: AsyncSession, user_in: UserCreate) -> User:
+    
     user = User(
         name=user_in.name,
         email=user_in.email,

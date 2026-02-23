@@ -24,4 +24,14 @@ class User(Base):
         DateTime, default=datetime.utcnow
     )
 
-    items = relationship("Item", back_populates="seller")
+    items_for_sale = relationship(
+        "Item", 
+        foreign_keys="[Item.seller_id]", 
+        back_populates="seller"
+    )
+
+    reserved_items = relationship(
+        "Item", 
+        foreign_keys="[Item.reserved_by_id]", 
+        back_populates="reserved_by"
+    )

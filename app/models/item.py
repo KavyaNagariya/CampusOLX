@@ -18,9 +18,7 @@ class Item(Base):
     status: Mapped[ItemStatus] = mapped_column(
         default=ItemStatus.AVAILABLE
     )
-    # ... inside class Item(Base): ...
     
-    # Optional[] because a student might want to sell something without a photo
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     seller_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
@@ -38,12 +36,20 @@ class Item(Base):
     reserved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     # Relationships
-    seller = relationship("User", back_populates="items", foreign_keys=[seller_id])
     category = relationship("Category", back_populates="items")
     reservations = relationship("Reservation", back_populates="item")
-    
-    # Optional but recommended: A direct relationship to the user who reserved it
-    reserved_by = relationship("User", foreign_keys=[reserved_by_id])
+
+    seller = relationship(
+        "User", 
+        foreign_keys=[seller_id], # Explicitly point to seller_id
+        back_populates="items_for_sale"
+    )
+    #Optional
+    reserved_by = relationship(
+        "User", 
+        foreign_keys=[reserved_by_id], 
+        back_populates="reserved_items"
+    )
 
     @property
     def is_actually_available(self) -> bool:
