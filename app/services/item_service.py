@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
-from typing import Optional
+
 from app.models.item import Item
 from app.schemas.item import ItemCreate
 from app.core.constants import ItemStatus
@@ -17,35 +17,31 @@ async def create_item(
 
 
 async def list_available_items(
-    db: AsyncSession,
-    q: Optional[str] = None,
-    category_id: Optional[int] = None,
-    max_price: Optional[int] = None,
-    limit: int = 50
+        db: AsyncSession,
+        q: str = None,
+        category_id: int = None,
+        max_price: int = None,
+        limit: int = 20,
+        offset: int = 0
 ) -> list[Item]:
-    """
-    Service function to fetch available items with dynamic filtering.
-    """
-    stmt = select(Item).where(Item.status == ItemStatus.AVAILABLE)
-    
-    # Dynamic filtering
-    if q: 
-        search_term = f"%{q}%" 
-        stmt = stmt.where(
-            or_(
-                Item.title.ilike(search_term),
-                Item.description.ilike(search_term)
-            )
+    query = select(Item).where(Item.status == ItemStatus.AVAILABLE)
+
+    if q:
+        search_term = f"%{q}%"
+        query = query.filter(
+                or_(
+                    Item.title.ilike(search_term),
+                    Item.description.ilike(search_term)
+                )
         )
 
     if category_id:
-        stmt = stmt.where(Item.category_id == category_id)
+        query = query.filter(Item.category_id == category_id)
 
-    if max_price is not None:
-        stmt = stmt.where(Item.price <= max_price)
+    if max_price:
+        query = query.filter(Item.price <= max_price)
 
-    # Order by newest first, apply limits
-    stmt = stmt.order_by(Item.created_at.desc()).limit(limit)
+    query = query.offset(offset).limit(limit)
 
-    result = await db.execute(stmt)
+    result = await db.execute(query)
     return result.scalars().all()

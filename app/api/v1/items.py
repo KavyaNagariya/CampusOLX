@@ -27,11 +27,12 @@ async def post_item(
 async def browse_items(
     db: AsyncSession = Depends(get_db),
     q: Optional[str] = Query(None, description="Search title or description"),
-    category_id: Optional[int] = Query(None, description="Filter by category"),
-    max_price: Optional[int] = Query(None, description="Maximum price in rupees"),
-    limit: int = Query(50, ge=1, le=100)
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    max_price: Optional[int] = Query(None, description="Maximum price in price"),
+    limit: int = Query(20, ge=0, le=100),
+    offset: int = Query(0, ge=0)
 ):
-    return await list_available_items(db=db, q=q, category_id=category_id, max_price=max_price, limit=limit)
+    return await list_available_items(db=db, q=q, category_id=category_id, max_price=max_price, limit=limit, offset=offset)
 
 @router.post("/{item_id}/image", status_code=status.HTTP_200_OK)
 async def upload_image_for_item(
