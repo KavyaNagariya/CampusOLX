@@ -37,7 +37,7 @@ class Item(Base):
 
     # Relationships
     category = relationship("Category", back_populates="items")
-    reservations = relationship("Reservation", back_populates="item")
+    reservations = relationship("Reservation", back_populates="item", cascade="all, delete-orphan", passive_deletes=True)
 
     seller = relationship(
         "User", 
