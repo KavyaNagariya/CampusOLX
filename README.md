@@ -108,13 +108,21 @@ All routes are prefixed with `/api/v1`.
 - `POST /items/`
 - `GET /items/`
 - `POST /items/{item_id}/image`
+- `GET /items/me` - Get my listings
+- `GET /items/purchases` - Get my purchases
+- `DELETE /items/{item_id}` - Delete own item (seller or admin)
 
 - Categories
 - `GET /categories/`
 
 - Reservations
-- `POST /reservations/`
-- `POST /reservations/{reservation_id}/accept`
+- `POST /reservations/` - Create reservation request
+- `GET /reservations/` - List user's reservations (as buyer/seller)
+- `GET /reservations/{reservation_id}` - Get specific reservation
+- `POST /reservations/{reservation_id}/accept` - Seller accepts
+- `POST /reservations/{reservation_id}/reject` - Seller rejects
+- `POST /reservations/{reservation_id}/cancel` - Buyer/seller cancels
+- `POST /reservations/{reservation_id}/sold` - Seller confirms sale
 
 - Reports
 - `POST /reports/`
@@ -124,15 +132,12 @@ All routes are prefixed with `/api/v1`.
 
 - Admin
 - `POST /admin/block-user/{user_id}`
-- `DELETE /admin/remove-item/{item_id}`
+- `DELETE /admin/soft-delete-item/{item_id}`
+- `DELETE /admin/hard-delete-item/{item_id}`
 
-## Authentication
+## Documentation
 
-JWT bearer tokens are returned by `POST /api/v1/auth/login` and expected in:
-
-```http
-Authorization: Bearer <access_token>
-```
+> **Important:** After making any changes to the codebase, please update the `ARCHITECTURE.md` file to reflect the new architecture, endpoints, or logic. This ensures the documentation stays in sync with the implementation.
 
 ## Tests
 
