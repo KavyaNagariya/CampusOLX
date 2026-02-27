@@ -45,7 +45,10 @@ SECRET_KEY=your-secret-key
 DATABASE_URL=postgresql+asyncpg://user:password@host:5432/dbname
 DATABASE_URL_POOLER=postgresql+asyncpg://user:password@host:5432/dbname
 DEBUG=True
-CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 Notes:
