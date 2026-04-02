@@ -7,6 +7,7 @@ passlib[bcrypt]
 sqlalchemy
 asyncpg
 alembic
+cloudinary
 python-multipart
 email-validator
 httpx
