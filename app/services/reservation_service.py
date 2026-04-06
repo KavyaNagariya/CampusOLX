@@ -12,7 +12,7 @@ async def request_reservation(
     db: AsyncSession, item_id: int, buyer_id: int
 ) -> Reservation:
     """Create a reservation request with row locking to prevent race conditions."""
-    stmt = select(Item).where(Item.id == item_id).with_for_update()
+    stmt = select(Item).where(Item.id == item_id)
     result = await db.execute(stmt)
     item = result.scalar_one_or_none()
 
@@ -58,7 +58,6 @@ async def accept_reservation(
         select(Reservation)
         .options(joinedload(Reservation.item))
         .where(Reservation.id == reservation_id)
-        .with_for_update()
     )
     result = await db.execute(stmt)
     reservation = result.scalar_one_or_none()
@@ -97,7 +96,6 @@ async def reject_reservation(
         select(Reservation)
         .options(joinedload(Reservation.item))
         .where(Reservation.id == reservation_id)
-        .with_for_update()
     )
     result = await db.execute(stmt)
     reservation = result.scalar_one_or_none()
@@ -141,7 +139,6 @@ async def cancel_reservation(
         select(Reservation)
         .options(joinedload(Reservation.item))
         .where(Reservation.id == reservation_id)
-        .with_for_update()
     )
     result = await db.execute(stmt)
     reservation = result.scalar_one_or_none()
@@ -189,7 +186,6 @@ async def confirm_sale(
         select(Reservation)
         .options(joinedload(Reservation.item))
         .where(Reservation.id == reservation_id)
-        .with_for_update()
     )
     result = await db.execute(stmt)
     reservation = result.scalar_one_or_none()

@@ -41,6 +41,28 @@ async def browse_items(
     )
 
 
+@router.get("/me", response_model=list[ItemResponse])
+async def get_my_listings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Fetch all items posted by the current logged-in user."""
+    result = await db.execute(select(Item).where(Item.seller_id == current_user.id))
+    return result.scalars().all()
+
+
+@router.get("/purchases", response_model=list[ItemResponse])
+async def get_my_purchases(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Fetch all items currently reserved by the logged-in user."""
+    result = await db.execute(
+        select(Item).where(Item.reserved_by_id == current_user.id)
+    )
+    return result.scalars().all()
+
+
 @router.get("/{item_id}", response_model=ItemResponse)
 async def get_item(
     item_id: int,
@@ -62,14 +84,11 @@ async def upload_image_for_item(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Attaches an image to an existing item.
-    Includes BOLA (Broken Object Level Authorization) protection.
+    Attaches an image to an existing item. Supports up to 4 images via comma separation.
     """
-    # 1. Fetch the item
     result = await db.execute(select(Item).where(Item.id == item_id))
     item = result.scalar_one_or_none()
 
-    # 2. Verify existence and ownership (Security Guardrail)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
@@ -79,11 +98,18 @@ async def upload_image_for_item(
             detail="You can only upload images for your own items.",
         )
 
-    # 3. Upload to Cloudinary (The utility handles the 500 Failure Mode internally)
+    # Check limits first before expensive upload
+    current_urls = item.image_url.split(",") if item.image_url else []
+    if len(current_urls) >= 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum of 4 images allowed per item.",
+        )
+
     secure_url = await upload_item_image(file)
 
-    # 4. Save the URL to the database
-    item.image_url = secure_url
+    current_urls.append(secure_url)
+    item.image_url = ",".join(current_urls)
 
     try:
         await db.commit()
@@ -95,7 +121,7 @@ async def upload_image_for_item(
             detail="Failed to save image URL to database.",
         )
 
-    return {"message": "Image uploaded successfully", "image_url": secure_url}
+    return {"message": "Image uploaded successfully", "image_url": item.image_url}
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -120,25 +146,3 @@ async def delete_my_item(
     await db.delete(item)
     await db.commit()
     return None
-
-
-@router.get("/me", response_model=list[ItemResponse])
-async def get_my_listings(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Fetch all items posted by the current logged-in user."""
-    result = await db.execute(select(Item).where(Item.seller_id == current_user.id))
-    return result.scalars().all()
-
-
-@router.get("/purchases", response_model=list[ItemResponse])
-async def get_my_purchases(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Fetch all items currently reserved by the logged-in user."""
-    result = await db.execute(
-        select(Item).where(Item.reserved_by_id == current_user.id)
-    )
-    return result.scalars().all()
