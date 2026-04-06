@@ -23,11 +23,7 @@ class Settings(BaseSettings):
     
     
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
+    BACKEND_CORS_ORIGINS: list[str] = ["*"]
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
