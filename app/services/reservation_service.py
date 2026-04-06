@@ -39,8 +39,15 @@ async def request_reservation(
     item.reserved_by_id = buyer_id
 
     await db.commit()
-    await db.refresh(reservation)
-    return reservation
+
+    # Reload with joinedload to satisfy ReservationResponse schema
+    stmt = (
+        select(Reservation)
+        .options(joinedload(Reservation.item))
+        .where(Reservation.id == reservation.id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def accept_reservation(
@@ -71,8 +78,15 @@ async def accept_reservation(
 
     reservation.status = ReservationStatus.ACCEPTED
     await db.commit()
-    await db.refresh(reservation)
-    return reservation
+
+    # Reload with joinedload to satisfy ReservationResponse schema
+    stmt = (
+        select(Reservation)
+        .options(joinedload(Reservation.item))
+        .where(Reservation.id == reservation.id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def reject_reservation(
@@ -108,8 +122,15 @@ async def reject_reservation(
     reservation.item.reserved_at = None
 
     await db.commit()
-    await db.refresh(reservation)
-    return reservation
+
+    # Reload with joinedload to satisfy ReservationResponse schema
+    stmt = (
+        select(Reservation)
+        .options(joinedload(Reservation.item))
+        .where(Reservation.id == reservation.id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def cancel_reservation(
@@ -149,8 +170,15 @@ async def cancel_reservation(
     reservation.item.reserved_at = None
 
     await db.commit()
-    await db.refresh(reservation)
-    return reservation
+
+    # Reload with joinedload to satisfy ReservationResponse schema
+    stmt = (
+        select(Reservation)
+        .options(joinedload(Reservation.item))
+        .where(Reservation.id == reservation.id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def confirm_sale(
@@ -186,8 +214,15 @@ async def confirm_sale(
     reservation.item.status = ItemStatus.SOLD
 
     await db.commit()
-    await db.refresh(reservation)
-    return reservation
+
+    # Reload with joinedload to satisfy ReservationResponse schema
+    stmt = (
+        select(Reservation)
+        .options(joinedload(Reservation.item))
+        .where(Reservation.id == reservation.id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def get_reservation(
@@ -218,8 +253,13 @@ async def list_my_reservations(db: AsyncSession, user_id: int) -> list[Reservati
     stmt = (
         select(Reservation)
         .options(joinedload(Reservation.item))
-        .where(or_(Reservation.buyer_id == user_id, Item.seller_id == user_id))
+        .where(
+            or_(
+                Reservation.buyer_id == user_id,
+                Reservation.item.has(Item.seller_id == user_id),
+            )
+        )
         .order_by(Reservation.created_at.desc())
     )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())

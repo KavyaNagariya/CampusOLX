@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_create_and_list_items(client):
+async def test_create_and_list_items(client, seed_categories):
     # Signup & login
     await client.post(
         "/api/v1/auth/signup",
@@ -16,8 +16,8 @@ async def test_create_and_list_items(client):
 
     login = await client.post(
         "/api/v1/auth/login",
-        json={
-            "email": "seller@example.com",
+        data={
+            "username": "seller@example.com",
             "password": "password123",
         },
     )
@@ -47,4 +47,3 @@ async def test_create_and_list_items(client):
     response = await client.get("/api/v1/items/")
     assert response.status_code == 200
     assert len(response.json()) >= 1
-

@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_reservation_flow(client):
+async def test_reservation_flow(client, seed_categories):
     # Seller
     await client.post(
         "/api/v1/auth/signup",
@@ -16,8 +16,8 @@ async def test_reservation_flow(client):
 
     seller_login = await client.post(
         "/api/v1/auth/login",
-        json={
-            "email": "seller2@example.com",
+        data={
+            "username": "seller2@example.com",
             "password": "password123",
         },
     )
@@ -36,8 +36,8 @@ async def test_reservation_flow(client):
 
     buyer_login = await client.post(
         "/api/v1/auth/login",
-        json={
-            "email": "buyer@example.com",
+        data={
+            "username": "buyer@example.com",
             "password": "password123",
         },
     )
@@ -77,4 +77,3 @@ async def test_reservation_flow(client):
 
     assert response.status_code == 200
     assert response.json()["status"] == "accepted"
-
