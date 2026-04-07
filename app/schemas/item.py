@@ -24,6 +24,10 @@ class ItemResponse(ItemBase):
     image_url: str | None = None
     reserved_at: datetime | None = None
     reserved_by_id: int | None = None
+    
+    seller_name: str | None = None
+    seller_rating: float | None = None
+    seller_rating_count: int | None = None
 
     model_config = {"from_attributes": True}
 

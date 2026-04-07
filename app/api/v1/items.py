@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
@@ -47,7 +48,10 @@ async def get_my_listings(
     current_user: User = Depends(get_current_user),
 ):
     """Fetch all items posted by the current logged-in user."""
-    result = await db.execute(select(Item).where(Item.seller_id == current_user.id))
+    query = select(Item).options(
+        selectinload(Item.seller).selectinload(User.ratings_received)
+    ).where(Item.seller_id == current_user.id)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -57,9 +61,10 @@ async def get_my_purchases(
     current_user: User = Depends(get_current_user),
 ):
     """Fetch all items currently reserved by the logged-in user."""
-    result = await db.execute(
-        select(Item).where(Item.reserved_by_id == current_user.id)
-    )
+    query = select(Item).options(
+        selectinload(Item.seller).selectinload(User.ratings_received)
+    ).where(Item.reserved_by_id == current_user.id)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -69,7 +74,10 @@ async def get_item(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific item by ID."""
-    result = await db.execute(select(Item).where(Item.id == item_id))
+    query = select(Item).options(
+        selectinload(Item.seller).selectinload(User.ratings_received)
+    ).where(Item.id == item_id)
+    result = await db.execute(query)
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")

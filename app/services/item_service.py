@@ -18,6 +18,9 @@ async def create_item(db: AsyncSession, item_in: ItemCreate, seller_id: int) -> 
     return item
 
 
+from sqlalchemy.orm import selectinload
+from app.models.user import User
+
 async def list_available_items(
     db: AsyncSession,
     q: str = None,
@@ -26,7 +29,9 @@ async def list_available_items(
     limit: int = 20,
     offset: int = 0,
 ) -> list[Item]:
-    query = select(Item).where(Item.status == ItemStatus.AVAILABLE)
+    query = select(Item).options(
+        selectinload(Item.seller).selectinload(User.ratings_received)
+    ).where(Item.status == ItemStatus.AVAILABLE)
 
     if q:
         search_term = f"%{q}%"

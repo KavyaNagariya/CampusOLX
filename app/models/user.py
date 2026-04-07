@@ -35,3 +35,20 @@ class User(Base):
         foreign_keys="[Item.reserved_by_id]", 
         back_populates="reserved_by"
     )
+
+    ratings_received = relationship(
+        "Rating",
+        foreign_keys="[Rating.rated_user_id]",
+        backref="rated_user",
+        passive_deletes=True
+    )
+
+    @property
+    def average_rating(self) -> float:
+        if not self.ratings_received:
+            return 0.0
+        return sum(r.score for r in self.ratings_received) / len(self.ratings_received)
+
+    @property
+    def rating_count(self) -> int:
+        return len(self.ratings_received) if self.ratings_received else 0

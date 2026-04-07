@@ -65,3 +65,15 @@ class Item(Base):
             # If the reservation time is older than 5 minutes ago, it's available again
             return self.reserved_at < five_mins_ago
         return False
+
+    @property
+    def seller_name(self) -> str | None:
+        return self.seller.name if hasattr(self, 'seller') and self.seller else None
+
+    @property
+    def seller_rating(self) -> float | None:
+        return self.seller.average_rating if hasattr(self, 'seller') and self.seller else 0.0
+
+    @property
+    def seller_rating_count(self) -> int | None:
+        return self.seller.rating_count if hasattr(self, 'seller') and self.seller else 0
