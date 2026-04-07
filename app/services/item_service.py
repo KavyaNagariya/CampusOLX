@@ -14,8 +14,13 @@ async def create_item(db: AsyncSession, item_in: ItemCreate, seller_id: int) -> 
     item = Item(**item_data, seller_id=seller_id)
     db.add(item)
     await db.commit()
-    await db.refresh(item)
-    return item
+    
+    # Reload with relationships for serialization
+    stmt = select(Item).options(
+        selectinload(Item.seller).selectinload(User.ratings_received)
+    ).where(Item.id == item.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 from sqlalchemy.orm import selectinload

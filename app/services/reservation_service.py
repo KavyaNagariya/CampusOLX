@@ -2,9 +2,10 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from app.models.reservation import Reservation
 from app.models.item import Item
+from app.models.user import User
 from app.core.constants import ReservationStatus, ItemStatus
 
 
@@ -43,7 +44,9 @@ async def request_reservation(
     # Reload with joinedload to satisfy ReservationResponse schema
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(Reservation.id == reservation.id)
     )
     result = await db.execute(stmt)
@@ -81,7 +84,9 @@ async def accept_reservation(
     # Reload with joinedload to satisfy ReservationResponse schema
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(Reservation.id == reservation.id)
     )
     result = await db.execute(stmt)
@@ -124,7 +129,9 @@ async def reject_reservation(
     # Reload with joinedload to satisfy ReservationResponse schema
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(Reservation.id == reservation.id)
     )
     result = await db.execute(stmt)
@@ -171,7 +178,9 @@ async def cancel_reservation(
     # Reload with joinedload to satisfy ReservationResponse schema
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(Reservation.id == reservation.id)
     )
     result = await db.execute(stmt)
@@ -214,7 +223,9 @@ async def confirm_sale(
     # Reload with joinedload to satisfy ReservationResponse schema
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(Reservation.id == reservation.id)
     )
     result = await db.execute(stmt)
@@ -227,7 +238,9 @@ async def get_reservation(
     """Get a specific reservation. User must be buyer or seller."""
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(Reservation.id == reservation_id)
     )
     result = await db.execute(stmt)
@@ -248,7 +261,9 @@ async def list_my_reservations(db: AsyncSession, user_id: int) -> list[Reservati
     """Get all reservations where user is either buyer or seller."""
     stmt = (
         select(Reservation)
-        .options(joinedload(Reservation.item))
+        .options(
+            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
+        )
         .where(
             or_(
                 Reservation.buyer_id == user_id,
