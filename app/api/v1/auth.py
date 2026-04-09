@@ -26,6 +26,16 @@ async def signup(
             detail="Email already registered",
         )
 
+    # Check if phone already exists
+    result = await db.execute(
+        select(User).where(User.phone == user_in.phone)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already in use",
+        )
+
     user = await register_user(db, user_in)
     return user
 

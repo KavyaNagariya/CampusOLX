@@ -1,6 +1,6 @@
 from sqlalchemy import String, Text, ForeignKey, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 from app.db.base import Base
@@ -53,18 +53,7 @@ class Item(Base):
 
     @property
     def is_actually_available(self) -> bool:
-        """
-        Kill Switch / Lazy Expiry Logic:
-        If an item is marked 'RESERVED' but 5 minutes have passed,
-        the system treats it as 'AVAILABLE' to prevent marketplace stagnation.
-        """
-        if self.status == ItemStatus.AVAILABLE:
-            return True
-        if self.status == ItemStatus.RESERVED and self.reserved_at:
-            five_mins_ago = datetime.utcnow() - timedelta(minutes=5)
-            # If the reservation time is older than 5 minutes ago, it's available again
-            return self.reserved_at < five_mins_ago
-        return False
+        return self.status == ItemStatus.AVAILABLE
 
     @property
     def seller_name(self) -> str | None:

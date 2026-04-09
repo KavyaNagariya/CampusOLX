@@ -1,4 +1,3 @@
-from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -9,10 +8,31 @@ from app.models.user import User
 from app.core.constants import ReservationStatus, ItemStatus
 
 
+def _reservation_load_options():
+    """Shared eager-load options for reservation queries."""
+    return [
+        joinedload(Reservation.item)
+        .joinedload(Item.seller)
+        .selectinload(User.ratings_received),
+        joinedload(Reservation.buyer),
+    ]
+
+
+async def _reload_reservation(db: AsyncSession, reservation_id: int) -> Reservation:
+    """Reload a reservation with all relationships for the response schema."""
+    stmt = (
+        select(Reservation)
+        .options(*_reservation_load_options())
+        .where(Reservation.id == reservation_id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
 async def request_reservation(
     db: AsyncSession, item_id: int, buyer_id: int
 ) -> Reservation:
-    """Create a reservation request with row locking to prevent race conditions."""
+    """Create a reservation request. Item stays available for other buyers."""
     stmt = select(Item).where(Item.id == item_id)
     result = await db.execute(stmt)
     item = result.scalar_one_or_none()
@@ -25,38 +45,37 @@ async def request_reservation(
             status_code=400, detail="You can't reserve your own product"
         )
 
-    if not item.is_actually_available:
+    if item.status != ItemStatus.AVAILABLE:
         raise HTTPException(
-            status_code=400, detail="Item is currently reserved or sold"
+            status_code=400, detail="Item is not available for reservation"
+        )
+
+    # Prevent duplicate active reservations from the same buyer
+    existing_stmt = select(Reservation).where(
+        Reservation.item_id == item_id,
+        Reservation.buyer_id == buyer_id,
+        Reservation.status.in_([ReservationStatus.REQUESTED, ReservationStatus.ACCEPTED]),
+    )
+    existing_result = await db.execute(existing_stmt)
+    if existing_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="You already have an active reservation for this item",
         )
 
     reservation = Reservation(
         item_id=item_id, buyer_id=buyer_id, status=ReservationStatus.REQUESTED
     )
     db.add(reservation)
-
-    item.status = ItemStatus.RESERVED
-    item.reserved_at = datetime.utcnow().replace(tzinfo=None)
-    item.reserved_by_id = buyer_id
-
     await db.commit()
 
-    # Reload with joinedload to satisfy ReservationResponse schema
-    stmt = (
-        select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
-        .where(Reservation.id == reservation.id)
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    return await _reload_reservation(db, reservation.id)
 
 
 async def accept_reservation(
     db: AsyncSession, reservation_id: int, seller_id: int
 ) -> Reservation:
-    """Seller accepts a reservation request."""
+    """Seller accepts a reservation request. Buyer details become visible."""
     stmt = (
         select(Reservation)
         .options(joinedload(Reservation.item))
@@ -81,22 +100,13 @@ async def accept_reservation(
     reservation.status = ReservationStatus.ACCEPTED
     await db.commit()
 
-    # Reload with joinedload to satisfy ReservationResponse schema
-    stmt = (
-        select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
-        .where(Reservation.id == reservation.id)
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    return await _reload_reservation(db, reservation.id)
 
 
 async def reject_reservation(
     db: AsyncSession, reservation_id: int, seller_id: int
 ) -> Reservation:
-    """Seller rejects a reservation request and releases the item."""
+    """Seller rejects a reservation request. Item stays available."""
     stmt = (
         select(Reservation)
         .options(joinedload(Reservation.item))
@@ -119,23 +129,9 @@ async def reject_reservation(
         )
 
     reservation.status = ReservationStatus.REJECTED
-
-    reservation.item.status = ItemStatus.AVAILABLE
-    reservation.item.reserved_by_id = None
-    reservation.item.reserved_at = None
-
     await db.commit()
 
-    # Reload with joinedload to satisfy ReservationResponse schema
-    stmt = (
-        select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
-        .where(Reservation.id == reservation.id)
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    return await _reload_reservation(db, reservation.id)
 
 
 async def cancel_reservation(
@@ -168,29 +164,15 @@ async def cancel_reservation(
         )
 
     reservation.status = ReservationStatus.CANCELLED
-
-    reservation.item.status = ItemStatus.AVAILABLE
-    reservation.item.reserved_by_id = None
-    reservation.item.reserved_at = None
-
     await db.commit()
 
-    # Reload with joinedload to satisfy ReservationResponse schema
-    stmt = (
-        select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
-        .where(Reservation.id == reservation.id)
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    return await _reload_reservation(db, reservation.id)
 
 
 async def confirm_sale(
     db: AsyncSession, reservation_id: int, seller_id: int
 ) -> Reservation:
-    """Seller confirms the item has been sold. Marks item as SOLD and reservation as ACCEPTED."""
+    """Seller confirms the sale. Item marked SOLD, other reservations auto-rejected."""
     stmt = (
         select(Reservation)
         .options(joinedload(Reservation.item))
@@ -217,19 +199,23 @@ async def confirm_sale(
 
     reservation.status = ReservationStatus.ACCEPTED
     reservation.item.status = ItemStatus.SOLD
+    reservation.item.reserved_by_id = reservation.buyer_id
+
+    # Auto-reject all other pending reservations for this item
+    other_stmt = select(Reservation).where(
+        Reservation.item_id == reservation.item_id,
+        Reservation.id != reservation.id,
+        Reservation.status.in_(
+            [ReservationStatus.REQUESTED, ReservationStatus.ACCEPTED]
+        ),
+    )
+    other_result = await db.execute(other_stmt)
+    for other_res in other_result.scalars().all():
+        other_res.status = ReservationStatus.REJECTED
 
     await db.commit()
 
-    # Reload with joinedload to satisfy ReservationResponse schema
-    stmt = (
-        select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
-        .where(Reservation.id == reservation.id)
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    return await _reload_reservation(db, reservation.id)
 
 
 async def get_reservation(
@@ -238,9 +224,7 @@ async def get_reservation(
     """Get a specific reservation. User must be buyer or seller."""
     stmt = (
         select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
+        .options(*_reservation_load_options())
         .where(Reservation.id == reservation_id)
     )
     result = await db.execute(stmt)
@@ -261,9 +245,7 @@ async def list_my_reservations(db: AsyncSession, user_id: int) -> list[Reservati
     """Get all reservations where user is either buyer or seller."""
     stmt = (
         select(Reservation)
-        .options(
-            joinedload(Reservation.item).joinedload(Item.seller).selectinload(User.ratings_received)
-        )
+        .options(*_reservation_load_options())
         .where(
             or_(
                 Reservation.buyer_id == user_id,

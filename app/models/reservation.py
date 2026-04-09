@@ -23,3 +23,4 @@ class Reservation(Base):
     )
 
     item = relationship("Item", back_populates="reservations")
+    buyer = relationship("User", foreign_keys=[buyer_id])

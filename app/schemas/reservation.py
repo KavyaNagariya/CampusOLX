@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel
 from datetime import datetime
 from app.core.constants import ReservationStatus
@@ -11,6 +10,15 @@ class ReservationCreate(BaseModel):
     item_id: int
 
 
+class BuyerInfo(BaseModel):
+    id: int
+    name: str
+    email: str
+    phone: str
+
+    model_config = {"from_attributes": True}
+
+
 class ReservationResponse(BaseModel):
     id: int
     item_id: int
@@ -18,5 +26,6 @@ class ReservationResponse(BaseModel):
     status: ReservationStatus
     created_at: datetime
     item: ItemResponse
+    buyer: BuyerInfo | None = None
 
     model_config = {"from_attributes": True}
