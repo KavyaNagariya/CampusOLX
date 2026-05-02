@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import joinedload, selectinload
@@ -6,6 +6,7 @@ from app.models.reservation import Reservation
 from app.models.item import Item
 from app.models.user import User
 from app.core.constants import ReservationStatus, ItemStatus
+from app.utils.email import send_new_reservation_email, send_reservation_accepted_email
 
 
 def _reservation_load_options():
@@ -30,7 +31,7 @@ async def _reload_reservation(db: AsyncSession, reservation_id: int) -> Reservat
 
 
 async def request_reservation(
-    db: AsyncSession, item_id: int, buyer_id: int
+    db: AsyncSession, item_id: int, buyer_id: int, background_tasks: BackgroundTasks = None
 ) -> Reservation:
     """Create a reservation request. Item stays available for other buyers."""
     stmt = select(Item).where(Item.id == item_id)
@@ -69,11 +70,25 @@ async def request_reservation(
     db.add(reservation)
     await db.commit()
 
-    return await _reload_reservation(db, reservation.id)
+    reloaded = await _reload_reservation(db, reservation.id)
+    
+    # Notify seller in background
+    if background_tasks:
+        background_tasks.add_task(
+            send_new_reservation_email,
+            seller_email=reloaded.item.seller.email,
+            seller_name=reloaded.item.seller.name,
+            item_name=reloaded.item.title,
+            buyer_name=reloaded.buyer.name,
+            buyer_id=reloaded.buyer.id,
+            request_time=reloaded.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        )
+
+    return reloaded
 
 
 async def accept_reservation(
-    db: AsyncSession, reservation_id: int, seller_id: int
+    db: AsyncSession, reservation_id: int, seller_id: int, background_tasks: BackgroundTasks = None
 ) -> Reservation:
     """Seller accepts a reservation request. Buyer details become visible."""
     stmt = (
@@ -100,7 +115,19 @@ async def accept_reservation(
     reservation.status = ReservationStatus.ACCEPTED
     await db.commit()
 
-    return await _reload_reservation(db, reservation.id)
+    reloaded = await _reload_reservation(db, reservation.id)
+    
+    # Notify buyer in background
+    if background_tasks:
+        background_tasks.add_task(
+            send_reservation_accepted_email,
+            buyer_email=reloaded.buyer.email,
+            buyer_name=reloaded.buyer.name,
+            item_name=reloaded.item.title,
+            seller_name=reloaded.item.seller.name
+        )
+
+    return reloaded
 
 
 async def reject_reservation(

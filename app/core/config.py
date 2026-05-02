@@ -21,11 +21,19 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str
     
+    # SMTP Settings
+    SMTP_TLS: bool = True
+    SMTP_PORT: int = 587
+    SMTP_HOST: str | None = None
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    EMAILS_FROM_EMAIL: str | None = None
+    EMAILS_FROM_NAME: str | None = "Campus Marketplace"
     
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = ["*"]
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
 @lru_cache
 def get_settings() -> Settings:

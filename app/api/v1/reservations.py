@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -26,12 +26,16 @@ router = APIRouter(prefix="/reservations", tags=["Reservations"])
 @router.post("/", response_model=ReservationResponse)
 async def create_reservation(
     data: ReservationCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Create a new reservation request for an item."""
     return await request_reservation(
-        db=db, item_id=data.item_id, buyer_id=current_user.id
+        db=db, 
+        item_id=data.item_id, 
+        buyer_id=current_user.id,
+        background_tasks=background_tasks
     )
 
 
@@ -57,11 +61,17 @@ async def get_reservation_by_id(
 @router.post("/{reservation_id}/accept", response_model=ReservationResponse)
 async def accept_reservation_request(
     reservation_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Seller accepts a reservation request."""
-    return await accept_reservation(db, reservation_id, seller_id=current_user.id)
+    return await accept_reservation(
+        db, 
+        reservation_id, 
+        seller_id=current_user.id,
+        background_tasks=background_tasks
+    )
 
 
 @router.post("/{reservation_id}/reject", response_model=ReservationResponse)
